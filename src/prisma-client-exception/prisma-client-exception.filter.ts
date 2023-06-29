@@ -15,6 +15,7 @@ export class PrismaClientExceptionFilter extends BaseExceptionFilter {
 
     switch (exception.code) {
       case 'P2002': {
+        console.log('zawel');
         const status = HttpStatus.CONFLICT;
         response.status(status).json({
           statusCode: status,

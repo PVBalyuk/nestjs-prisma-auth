@@ -24,7 +24,7 @@ export class UserService {
     return newUser;
   }
 
-  async findOne(idOrEmail: string) {
+  async findOne(idOrEmail: string): Promise<User | null> {
     return this.prismaService.user.findFirst({
       where: {
         OR: [
