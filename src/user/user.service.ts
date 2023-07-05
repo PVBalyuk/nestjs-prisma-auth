@@ -1,5 +1,5 @@
-import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
-import { Prisma, User } from '@prisma/client';
+import { Injectable } from '@nestjs/common';
+import { User } from '@prisma/client';
 import { PrismaService } from '@prisma/prisma.service';
 import { hash } from 'bcrypt';
 
@@ -45,5 +45,9 @@ export class UserService {
         id,
       },
     });
+  }
+
+  async getAllUsers(): Promise<User[]> {
+    return this.prismaService.user.findMany();
   }
 }

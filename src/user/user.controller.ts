@@ -38,4 +38,9 @@ export class UserController {
   async deleteUser(@Param('id', ParseUUIDPipe) id: string) {
     return await this.userService.delete(id);
   }
+
+  @Get()
+  async getAllUsers() {
+    return this.userService.getAllUsers();
+  }
 }

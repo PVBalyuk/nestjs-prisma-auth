@@ -33,30 +33,60 @@ export class AuthService {
     return this.userService.save(registerDto);
   }
 
-  async login(loginDto: LoginDto): Promise<Tokens> {
+  async login(loginDto: LoginDto, agent: string): Promise<Tokens> {
     const user: User = await this.userService.findOne(loginDto.email);
 
     if (!user || !compareSync(loginDto.password, user.password)) {
       throw new UnauthorizedException('Incorrect login or password');
     }
 
+    return this.generateTokens(user, agent);
+  }
+
+  async refreshTokens(refreshToken: string, agent: string) {
+    const token = await this.prismaService.token.delete({
+      where: {
+        token: refreshToken,
+      },
+    });
+
+    if (!token) {
+      throw new UnauthorizedException();
+    }
+
+    const user = await this.userService.findOne(token.userId);
+
+    return this.generateTokens(user, agent);
+  }
+
+  private async generateTokens(user: User, agent: string): Promise<Tokens> {
     const accessToken = await this.jwtService.signAsync({
       id: user.id,
       email: user.email,
       roles: user.roles,
     });
 
-    const refreshToken = await this.getRefreshToken(user.id);
+    const refreshToken = await this.getRefreshToken(user.id, agent);
 
     return { accessToken, refreshToken };
   }
 
-  private async getRefreshToken(userId: string): Promise<Token> {
-    return this.prismaService.token.create({
-      data: {
+  private async getRefreshToken(userId: string, agent: string): Promise<Token> {
+    const token = await this.prismaService.token.findFirst({
+      where: {
+        userId,
+        userAgent: agent,
+      },
+    });
+
+    return this.prismaService.token.upsert({
+      where: { token: token?.token || '' },
+      update: { token: v4(), exp: add(new Date(), { months: 1 }) },
+      create: {
         token: v4(),
         exp: add(new Date(), { months: 1 }),
         userId,
+        userAgent: agent,
       },
     });
   }
