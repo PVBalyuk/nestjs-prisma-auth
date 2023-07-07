@@ -6,13 +6,15 @@ import {
 } from '@nestjs/common';
 import { LoginDto, RegisterDto } from './dto';
 import { UserService } from '@user/user.service';
-import { Tokens } from './interfaces';
+import { Role, Tokens } from './interfaces';
 import { compareSync } from 'bcrypt';
 import { Token, User } from '@prisma/client';
 import { JwtService } from '@nestjs/jwt';
 import { PrismaService } from '@prisma/prisma.service';
 import { v4 } from 'uuid';
 import { add } from 'date-fns';
+import { ConfigService } from '@nestjs/config';
+import { GetResult } from '@prisma/client/runtime';
 
 @Injectable()
 export class AuthService {
@@ -22,6 +24,7 @@ export class AuthService {
     private readonly userService: UserService,
     private readonly jwtService: JwtService,
     private readonly prismaService: PrismaService,
+    private readonly configService: ConfigService,
   ) {}
 
   async register(registerDto: RegisterDto) {
@@ -60,11 +63,13 @@ export class AuthService {
   }
 
   private async generateTokens(user: User, agent: string): Promise<Tokens> {
-    const accessToken = await this.jwtService.signAsync({
-      id: user.id,
-      email: user.email,
-      roles: user.roles,
-    });
+    const accessToken = await this.jwtService.signAsync(
+      {
+        id: user.id,
+        email: user.email,
+      },
+      { expiresIn: this.configService.get('JWT_EXP') },
+    );
 
     const refreshToken = await this.getRefreshToken(user.id, agent);
 

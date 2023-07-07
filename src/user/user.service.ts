@@ -11,13 +11,17 @@ export class UserService {
     return hash(password, 10);
   }
 
-  async save(user: Partial<User>): Promise<User> {
+  async save(user: Partial<User>) {
     const hashPassword = await this.hashPassword(user.password);
     const newUser = await this.prismaService.user.create({
       data: {
         email: user.email,
         password: hashPassword,
-        roles: ['USER'],
+        user_roles: {
+          create: {
+            role: 'USER',
+          },
+        },
       },
     });
 
@@ -25,7 +29,7 @@ export class UserService {
   }
 
   async findOne(idOrEmail: string): Promise<User | null> {
-    return this.prismaService.user.findFirst({
+    const user = await this.prismaService.user.findFirst({
       where: {
         OR: [
           {
@@ -36,7 +40,16 @@ export class UserService {
           },
         ],
       },
+      include: {
+        user_roles: {
+          select: {
+            role: true,
+          },
+        },
+      },
     });
+
+    return user;
   }
 
   async delete(id: string) {
@@ -48,6 +61,25 @@ export class UserService {
   }
 
   async getAllUsers(): Promise<User[]> {
-    return this.prismaService.user.findMany();
+    return this.prismaService.user.findMany({
+      include: {
+        user_roles: {
+          select: {
+            role: true,
+          },
+        },
+      },
+    });
+  }
+
+  async updateUser(id: string, updateUserData: Partial<User>) {
+    return this.prismaService.user.update({
+      where: {
+        id,
+      },
+      data: {
+        ...updateUserData,
+      },
+    });
   }
 }

@@ -7,9 +7,12 @@ import {
   HttpStatus,
   Param,
   ParseUUIDPipe,
+  Patch,
   Post,
+  Put,
 } from '@nestjs/common';
 import { UserService } from './user.service';
+import { User } from '@prisma/client';
 
 @Controller('user')
 export class UserController {
@@ -42,5 +45,13 @@ export class UserController {
   @Get()
   async getAllUsers() {
     return this.userService.getAllUsers();
+  }
+
+  @Patch(':id')
+  async updateUser(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() updateDto: Partial<User>,
+  ) {
+    return this.userService.updateUser(id, updateDto);
   }
 }
