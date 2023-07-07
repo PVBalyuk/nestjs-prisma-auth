@@ -10,12 +10,12 @@ import {
   ParseUUIDPipe,
   Patch,
   Post,
-  Put,
   UseInterceptors,
 } from '@nestjs/common';
 import { UserService } from './user.service';
 import { Role, User } from '@prisma/client';
 import { UserResponse } from './responses';
+import { CurrentUser } from '@common/decorators';
 
 @Controller('user')
 export class UserController {
@@ -46,8 +46,11 @@ export class UserController {
 
   @UseInterceptors(ClassSerializerInterceptor)
   @Delete(':id')
-  async deleteUser(@Param('id', ParseUUIDPipe) id: string) {
-    return this.userService.delete(id);
+  async deleteUser(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser('roles') roles: Role[],
+  ) {
+    return this.userService.delete(id, roles);
   }
 
   @UseInterceptors(ClassSerializerInterceptor)
@@ -75,7 +78,6 @@ export class UserController {
     @Param('userId', ParseUUIDPipe) userId: string,
     @Body() userRole: { userRole: Role },
   ) {
-    console.log(userRole);
     return this.userService.updateUserRole(userId, userRole.userRole);
   }
 }

@@ -1,4 +1,8 @@
-import { ConflictException, Injectable } from '@nestjs/common';
+import {
+  ConflictException,
+  ForbiddenException,
+  Injectable,
+} from '@nestjs/common';
 import { Role, User, UserRole } from '@prisma/client';
 import { PrismaService } from '@prisma/prisma.service';
 import { hash } from 'bcrypt';
@@ -52,7 +56,14 @@ export class UserService {
     return user;
   }
 
-  async delete(id: string) {
+  async delete(id: string, roles: Role[]) {
+    const isCurrentUserHasAdminRights = roles.some(
+      (role) => role === Role.ADMIN,
+    );
+    if (!isCurrentUserHasAdminRights) {
+      throw new ForbiddenException();
+    }
+
     return this.prismaService.user.delete({
       where: {
         id,
@@ -94,8 +105,6 @@ export class UserService {
         },
       })
       .then((res) => res.map((userRole) => userRole.role));
-
-    console.log(currentUserRoles);
 
     if (currentUserRoles.includes(roleValue)) {
       throw new ConflictException(

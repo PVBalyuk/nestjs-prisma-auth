@@ -38,8 +38,6 @@ export class AuthService {
   async login(loginDto: LoginDto, agent: string): Promise<Tokens> {
     const user = await this.userService.findOne(loginDto.email);
 
-    console.log(user);
-
     if (!user || !compareSync(loginDto.password, user.password)) {
       throw new UnauthorizedException('Incorrect login or password');
     }
