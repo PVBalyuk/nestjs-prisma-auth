@@ -5,16 +5,15 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { LoginDto, RegisterDto } from './dto';
-import { UserService } from '@user/user.service';
-import { Role, Tokens } from './interfaces';
+import { ILoginDto, UserService } from '@user/user.service';
+import { Tokens } from './interfaces';
 import { compareSync } from 'bcrypt';
-import { Token, User } from '@prisma/client';
+import { Token, User, UserRole } from '@prisma/client';
 import { JwtService } from '@nestjs/jwt';
 import { PrismaService } from '@prisma/prisma.service';
 import { v4 } from 'uuid';
 import { add } from 'date-fns';
 import { ConfigService } from '@nestjs/config';
-import { GetResult } from '@prisma/client/runtime';
 
 @Injectable()
 export class AuthService {
@@ -37,7 +36,9 @@ export class AuthService {
   }
 
   async login(loginDto: LoginDto, agent: string): Promise<Tokens> {
-    const user: User = await this.userService.findOne(loginDto.email);
+    const user = await this.userService.findOne(loginDto.email);
+
+    console.log(user);
 
     if (!user || !compareSync(loginDto.password, user.password)) {
       throw new UnauthorizedException('Incorrect login or password');
@@ -62,11 +63,15 @@ export class AuthService {
     return this.generateTokens(user, agent);
   }
 
-  private async generateTokens(user: User, agent: string): Promise<Tokens> {
+  private async generateTokens(
+    user: ILoginDto,
+    agent: string,
+  ): Promise<Tokens> {
     const accessToken = await this.jwtService.signAsync(
       {
         id: user.id,
         email: user.email,
+        roles: user.user_roles.map((roleData: UserRole) => roleData.role),
       },
       { expiresIn: this.configService.get('JWT_EXP') },
     );

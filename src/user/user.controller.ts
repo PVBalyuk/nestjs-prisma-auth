@@ -14,7 +14,7 @@ import {
   UseInterceptors,
 } from '@nestjs/common';
 import { UserService } from './user.service';
-import { User } from '@prisma/client';
+import { Role, User } from '@prisma/client';
 import { UserResponse } from './responses';
 
 @Controller('user')
@@ -67,5 +67,15 @@ export class UserController {
     const user = await this.userService.updateUser(id, updateDto);
 
     return new UserResponse(user);
+  }
+
+  @UseInterceptors(ClassSerializerInterceptor)
+  @Patch('role/:userId')
+  async updateUserRole(
+    @Param('userId', ParseUUIDPipe) userId: string,
+    @Body() userRole: { userRole: Role },
+  ) {
+    console.log(userRole);
+    return this.userService.updateUserRole(userId, userRole.userRole);
   }
 }

@@ -1,7 +1,11 @@
-import { Injectable } from '@nestjs/common';
-import { User } from '@prisma/client';
+import { ConflictException, Injectable } from '@nestjs/common';
+import { Role, User, UserRole } from '@prisma/client';
 import { PrismaService } from '@prisma/prisma.service';
 import { hash } from 'bcrypt';
+
+export interface ILoginDto extends User {
+  user_roles: UserRole[] | [];
+}
 
 @Injectable()
 export class UserService {
@@ -28,7 +32,7 @@ export class UserService {
     return newUser;
   }
 
-  async findOne(idOrEmail: string): Promise<User | null> {
+  async findOne(idOrEmail: string): Promise<ILoginDto> {
     const user = await this.prismaService.user.findFirst({
       where: {
         OR: [
@@ -41,11 +45,7 @@ export class UserService {
         ],
       },
       include: {
-        user_roles: {
-          select: {
-            role: true,
-          },
-        },
+        user_roles: true,
       },
     });
 
@@ -82,6 +82,31 @@ export class UserService {
       },
       data: {
         ...updateUserData,
+      },
+    });
+  }
+
+  async updateUserRole(userId: string, roleValue: Role) {
+    const currentUserRoles = await this.prismaService.userRole
+      .findMany({
+        where: {
+          userId,
+        },
+      })
+      .then((res) => res.map((userRole) => userRole.role));
+
+    console.log(currentUserRoles);
+
+    if (currentUserRoles.includes(roleValue)) {
+      throw new ConflictException(
+        `User with id ${userId} already has ${roleValue} rights`,
+      );
+    }
+
+    return this.prismaService.userRole.create({
+      data: {
+        userId,
+        role: roleValue,
       },
     });
   }
