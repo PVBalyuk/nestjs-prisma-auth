@@ -1,5 +1,6 @@
 import {
   Body,
+  ClassSerializerInterceptor,
   Controller,
   Delete,
   Get,
@@ -10,19 +11,25 @@ import {
   Patch,
   Post,
   Put,
+  UseInterceptors,
 } from '@nestjs/common';
 import { UserService } from './user.service';
 import { User } from '@prisma/client';
+import { UserResponse } from './responses';
 
 @Controller('user')
 export class UserController {
   constructor(private readonly userService: UserService) {}
 
+  @UseInterceptors(ClassSerializerInterceptor)
   @Post()
   async createUser(@Body() dto: any) {
-    return await this.userService.save(dto);
+    const user = await this.userService.save(dto);
+
+    return new UserResponse(user);
   }
 
+  @UseInterceptors(ClassSerializerInterceptor)
   @Get(':idOrEmail')
   async findOneUser(@Param('idOrEmail', ParseUUIDPipe) idOrEmail: string) {
     const user = await this.userService.findOne(idOrEmail);
@@ -34,24 +41,31 @@ export class UserController {
       );
     }
 
-    return user;
+    return new UserResponse(user);
   }
 
+  @UseInterceptors(ClassSerializerInterceptor)
   @Delete(':id')
   async deleteUser(@Param('id', ParseUUIDPipe) id: string) {
-    return await this.userService.delete(id);
+    return this.userService.delete(id);
   }
 
+  @UseInterceptors(ClassSerializerInterceptor)
   @Get()
   async getAllUsers() {
-    return this.userService.getAllUsers();
+    const users = await this.userService.getAllUsers();
+
+    return users.map((user) => new UserResponse(user));
   }
 
+  @UseInterceptors(ClassSerializerInterceptor)
   @Patch(':id')
   async updateUser(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() updateDto: Partial<User>,
   ) {
-    return this.userService.updateUser(id, updateDto);
+    const user = await this.userService.updateUser(id, updateDto);
+
+    return new UserResponse(user);
   }
 }
