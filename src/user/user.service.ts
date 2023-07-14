@@ -1,11 +1,16 @@
+import { convertToSeconds } from '@common/utils';
+import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import {
   ConflictException,
   ForbiddenException,
+  Inject,
   Injectable,
 } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { Role, User, UserRole } from '@prisma/client';
 import { PrismaService } from '@prisma/prisma.service';
 import { hash } from 'bcrypt';
+import { Cache } from 'cache-manager';
 
 export interface ILoginDto extends User {
   user_roles: UserRole[] | [];
@@ -13,7 +18,11 @@ export interface ILoginDto extends User {
 
 @Injectable()
 export class UserService {
-  constructor(private readonly prismaService: PrismaService) {}
+  constructor(
+    private readonly configService: ConfigService,
+    private readonly prismaService: PrismaService,
+    @Inject(CACHE_MANAGER) private cacheManager: Cache,
+  ) {}
 
   private async hashPassword(password: string): Promise<string> {
     return hash(password, 10);
@@ -37,29 +46,49 @@ export class UserService {
   }
 
   async findOne(idOrEmail: string): Promise<ILoginDto> {
-    const user = await this.prismaService.user.findFirst({
-      where: {
-        OR: [
-          {
-            id: idOrEmail,
-          },
-          {
-            email: idOrEmail,
-          },
-        ],
-      },
-      include: {
-        user_roles: true,
-      },
-    });
+    const userFromCacheManager = await this.cacheManager.get<ILoginDto>(
+      idOrEmail,
+    );
 
-    return user;
+    if (!userFromCacheManager) {
+      const user = await this.prismaService.user.findFirst({
+        where: {
+          OR: [
+            {
+              id: idOrEmail,
+            },
+            {
+              email: idOrEmail,
+            },
+          ],
+        },
+        include: {
+          user_roles: true,
+        },
+      });
+
+      if (!user) return null;
+
+      await this.cacheManager.set(
+        idOrEmail,
+        user,
+        convertToSeconds(this.configService.get('JWT_EXP')),
+      );
+
+      return user;
+    }
+
+    return userFromCacheManager;
   }
 
   async delete(id: string, roles: Role[]) {
     const isCurrentUserHasAdminRights = roles.some(
       (role) => role === Role.ADMIN,
     );
+
+    console.log(roles);
+
+    console.log(isCurrentUserHasAdminRights);
     if (!isCurrentUserHasAdminRights) {
       throw new ForbiddenException();
     }
@@ -97,7 +126,7 @@ export class UserService {
     });
   }
 
-  async updateUserRole(userId: string, roleValue: Role) {
+  async addAdminRole(userId: string) {
     const currentUserRoles = await this.prismaService.userRole
       .findMany({
         where: {
@@ -106,16 +135,41 @@ export class UserService {
       })
       .then((res) => res.map((userRole) => userRole.role));
 
-    if (currentUserRoles.includes(roleValue)) {
+    if (currentUserRoles.includes(Role.ADMIN)) {
       throw new ConflictException(
-        `User with id ${userId} already has ${roleValue} rights`,
+        `User with id ${userId} already has ${Role.ADMIN} rights`,
       );
     }
 
     return this.prismaService.userRole.create({
       data: {
         userId,
-        role: roleValue,
+        role: Role.ADMIN,
+      },
+    });
+  }
+
+  async removeAdminRole(userId: string) {
+    const currentUserRoles = await this.prismaService.userRole
+      .findMany({
+        where: {
+          userId,
+        },
+      })
+      .then((res) => res.map((userRole) => userRole.role));
+
+    if (!currentUserRoles.includes(Role.ADMIN)) {
+      throw new ConflictException(
+        `User with id ${userId} doesn't has ${Role.ADMIN} rights`,
+      );
+    }
+
+    return this.prismaService.userRole.deleteMany({
+      where: {
+        AND: {
+          userId,
+          role: Role.ADMIN,
+        },
       },
     });
   }

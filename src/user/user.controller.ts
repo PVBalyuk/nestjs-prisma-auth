@@ -73,11 +73,14 @@ export class UserController {
   }
 
   @UseInterceptors(ClassSerializerInterceptor)
-  @Patch('role/:userId')
-  async updateUserRole(
-    @Param('userId', ParseUUIDPipe) userId: string,
-    @Body() userRole: { userRole: Role },
-  ) {
-    return this.userService.updateUserRole(userId, userRole.userRole);
+  @Patch('role/create/:userId')
+  async addUserRole(@Param('userId', ParseUUIDPipe) userId: string) {
+    return this.userService.addAdminRole(userId);
+  }
+
+  @UseInterceptors(ClassSerializerInterceptor)
+  @Patch('role/remove/:userId')
+  async updateUserRole(@Param('userId', ParseUUIDPipe) userId: string) {
+    return this.userService.removeAdminRole(userId);
   }
 }
